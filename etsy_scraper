@@ -1,0 +1,89 @@
+#Scrape all products from Etsy merchants in Long Beach, CA -- use this list to derive merchants
+#Open source code I used and edited...https://github.com/renlinda/EtsyScraper/blob/master/Etsy_Scraper.py
+#NOTE: Program does not pick up the products listed in Ads
+
+from bs4 import BeautifulSoup
+import requests, csv
+import re
+
+def getSoup(link):
+    #repeat until internet connection works and request goes through
+    nolink=True
+    while nolink:
+        res=requests.get(link) #get html
+        try:
+            res.raise_for_status()
+            nolink=False
+        except requests.exceptions.HTTPError:
+            pass
+    return BeautifulSoup(res.text,'lxml')
+
+#remove emojis to prevent character errors
+def remove_emoji(string):
+    emoji_pattern = re.compile("["
+                           u"\U0001F600-\U0001F64F"  # emoticons
+                           u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+                           u"\U0001F680-\U0001F6FF"  # transport & map symbols
+                           u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
+                           u"\U00002702-\U000027B0"
+                           u"\U000024C2-\U0001F251"
+                           "]+", flags=re.UNICODE)
+    return emoji_pattern.sub(r'', string)
+
+#replace with your desired link
+url = "https://www.etsy.com/c?explicit=1&locationQuery=5367929&ship_to=US&category_landing_page=true"
+
+master = open('Etsy_Scraped.csv','w', newline= '')
+mast = csv.writer(master)
+#I removed "display_img"
+mast.writerow(["listing_id","listing_name","listing_link","price","shop_name","shop_rating","num_shop_reviews"])
+# mast.writerow(["listing_id","listing_name","listing_link","shop_name","price","free_shipping","shop_rating","num_shop_reviews"])
+data = {}
+count = 0
+
+#get data in the X pages
+for i in range(190,252):
+    count = count +1
+    print(count)
+    try:
+        if i==1:
+
+            link = getSoup(url)
+        else:
+            link = getSoup(url+"&ref=pagination&page="+str(i))
+
+    except requests.exceptions.SSLError:
+        continue
+
+    table = link.find("ul","responsive-listing-grid")
+    listings = table.find_all("li")
+
+    for i in listings:
+        listing = i.find("div", class_="js-merch-stash-check-listing")
+        data['listing_id'] = listing.get("data-listing-id")
+        name = listing.find("a").get("title")
+        data['listing_name'] = remove_emoji(name).encode("utf-8")
+        shoplink = i.find('a')['href'] #This is not shop link, this is product details page
+        data['listing_link'] = shoplink
+
+        #price of product
+        if i.find("span",class_="currency-value") != None:
+            data["price"] = i.find("span",class_="currency-value").text
+        else:
+            data["price"] = "Not Given"
+
+        #Shop name
+        data['shop_name'] = i.find("p", class_="wt-text-caption wt-text-truncate wt-text-gray wt-mb-xs-1").find_all("span")[2].text.strip()
+
+        #Shop rating
+        if  i.find("span",class_="stars-svg stars-smaller") != None:
+            inputTag = i.find("span",class_="stars-svg stars-smaller").find(attrs={"name": "initial-rating"})
+            data["shop_rating"] = inputTag['value']
+
+        #Number of shop reviews
+        if i.find("span",class_="wt-position-top wt-line-height-tight wt-nudge-t-2 wt-display-block").find("span",class_="wt-text-body-01 wt-nudge-b-1 wt-text-gray wt-display-inline-block") != None:
+            data["num_shop_reviews"] = i.find("span",class_="wt-position-top wt-line-height-tight wt-nudge-t-2 wt-display-block").find("span",class_="wt-text-body-01 wt-nudge-b-1 wt-text-gray wt-display-inline-block").text.strip()
+        else:
+            data["num_shop_reviews"] = "ERROR"
+
+        mast.writerow([data['listing_id'],data['listing_name'],data['listing_link'],data['price'],data['shop_name'],data['shop_rating'],data['num_shop_reviews']])

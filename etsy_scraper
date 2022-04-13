@@ -31,7 +31,11 @@ def remove_emoji(string):
     return emoji_pattern.sub(r'', string)
 
 #replace with your desired link
-url = "https://www.etsy.com/c?explicit=1&locationQuery=5367929&ship_to=US&category_landing_page=true"
+# url = "https://www.etsy.com/c?explicit=1&locationQuery=5367929&ship_to=US&category_landing_page=true" #LBC
+url = "https://www.etsy.com/c?explicit=1&locationQuery=5368361&ship_to=US&category_landing_page=true" #L.A.
+
+#How to query by store
+#https://www.etsy.com/search/shops?search_query=MarmaraFurniture
 
 master = open('Etsy_Scraped.csv','w', newline= '')
 mast = csv.writer(master)
@@ -42,7 +46,7 @@ data = {}
 count = 0
 
 #get data in the X pages
-for i in range(190,252):
+for i in range(1,101):
     count = count +1
     print(count)
     try:
